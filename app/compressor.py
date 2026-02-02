@@ -15,7 +15,7 @@ from app.presets import get_preset, PresetConfig
 from app.utils import get_file_size_mb
 
 
-def get_video_info(path: str) -> Tuple[int, int, float, int]:
+def get_video_info(path: str) -> Tuple[int, int, float, int, float]:
     """Extract video metadata from file.
     
     Args:
@@ -41,7 +41,8 @@ def get_video_info(path: str) -> Tuple[int, int, float, int]:
     duration = float(probe["format"]["duration"])
     bitrate = int(probe["format"].get("bit_rate", 0)) // 1000  # kbps
     
-    return width, height, duration, bitrate
+    size_mb = get_file_size_mb(path)
+    return width, height, duration, bitrate, size_mb
 
 
 def compress_video(
@@ -73,7 +74,7 @@ def compress_video(
     preset_config = get_preset(preset)
     
     # Extract video info
-    width, height, duration, src_kbps = get_video_info(input_file)
+    width, height, duration, src_kbps, src_size_mb = get_video_info(input_file)
     
     # Calculate scaling filter
     max_height = preset_config["max_height"]
@@ -81,6 +82,11 @@ def compress_video(
     
     audio_kbps = 96
     
+    if target_mb is not None:
+        if src_size_mb <= (target_mb - 0.2):
+            shutil.copy(input_file, output_file)
+            return get_file_size_mb(output_file)
+
     # ========= TARGET MB MODE (2-PASS ENCODING) =========
     if target_mb:
         # Calculate video bitrate to meet target size
